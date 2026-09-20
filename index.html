@@ -1,0 +1,157 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Конструктор циферблатов — Zepp OS</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<header class="topbar">
+  <div class="brand" title="Конструктор циферблатов для Zepp OS">⌚<span class="brand-text">Конструктор циферблатов</span></div>
+
+  <div class="menu">
+    <div class="menu-group">
+      <button id="act-new" aria-label="Новый проект" data-tip="Новый проект: начинает пустой циферблат с нуля. Несохранённые изменения текущего проекта будут потеряны — при необходимости сначала сохраните его кнопкой «Сохранить».">🆕</button>
+      <button id="act-save" aria-label="Сохранить" data-tip="Сохранить: скачивает текущий проект в файл .watchface.json. Этот файл — полное состояние проекта, его можно открыть позже кнопкой «Открыть» и продолжить редактирование.">💾</button>
+      <label class="btn-file-inline" aria-label="Открыть" data-tip="Открыть: загружает ранее сохранённый файл .watchface.json и восстанавливает проект — компоненты, слои, фон и уровень API — для дальнейшего редактирования.">📂<input type="file" id="act-open" accept=".json" hidden></label>
+    </div>
+    <div class="menu-sep"></div>
+    <div class="menu-group">
+      <button id="act-undo" aria-label="Отменить" data-tip="Отменить (Ctrl+Z): откатывает последнее действие — перемещение, изменение свойств, добавление или удаление компонента.">↶</button>
+      <button id="act-redo" aria-label="Повторить" data-tip="Повторить (Ctrl+Y): возвращает действие, отменённое кнопкой «Отменить».">↷</button>
+      <button id="act-dup" aria-label="Дублировать" data-tip="Дублировать (Ctrl+D): создаёт копию выбранных компонентов на холсте со смещением, сохраняя все их свойства.">⎘</button>
+      <button id="act-del" aria-label="Удалить" data-tip="Удалить (Delete): убирает выбранные компоненты с холста и из списка слоёв. Действие можно отменить кнопкой «Отменить».">🗑</button>
+    </div>
+    <div class="menu-sep"></div>
+    <div class="menu-group canvas-toolbar-menu">
+      <button id="zoom-out" data-act="zoom-out" title="Уменьшить масштаб">−</button>
+      <select id="zoom-select" class="zoom-select" title="Масштаб">
+        <option value="25">25%</option>
+        <option value="50">50%</option>
+        <option value="75">75%</option>
+        <option value="100" selected>100%</option>
+        <option value="150">150%</option>
+        <option value="200">200%</option>
+        <option value="400">400%</option>
+      </select>
+      <button id="zoom-in" data-act="zoom-in" title="Увеличить масштаб">+</button>
+      <label class="chk" title="Показать/скрыть сетку"><input id="grid-toggle" type="checkbox" class="grid-toggle" checked> 🔲</label>
+      <label class="chk" title="Показать/скрыть прилипание"><input id="snap-toggle" type="checkbox" class="snap-toggle" checked> 🧲</label>
+      <label class="chk" title="Показать/скрыть тап-зоны"><input id="tap-zone-toggle" type="checkbox" class="tap-zone-toggle" checked> 🎯</label>
+    </div>
+    <div class="menu-sep"></div>
+    <div class="scene-switcher" role="group" aria-label="Режим сцены">
+      <button id="scene-normal" class="scene-btn active">Normal</button>
+      <button id="scene-aod" class="scene-btn">AOD Studio</button>
+    </div>
+    <div class="menu-sep"></div>
+    <div class="menu-group">
+      <button id="act-demo" aria-label="Собрать демо-циферблат" data-tip="Демо: заменяет текущие компоненты готовым макетом циферблата (время, дата, погода, пульс, шаги, заряд батареи) — быстрый способ познакомиться с возможностями редактора.">✨ Демо</button>
+    </div>
+    <div class="menu-sep"></div>
+    <div class="menu-group">
+      <button id="act-tips-toggle" class="tips-toggle" aria-label="Показать или скрыть подсказки" data-tip="Подсказки: показывает или скрывает всплывающие подсказки для кнопок этого меню. Выбор запоминается в браузере.">❔</button>
+    </div>
+  </div>
+
+  <div class="topbar-right">
+    <label class="field-inline" aria-label="Уровень API" data-tip="Уровень Zepp OS API: целевая версия платформы для экспорта. Определяет, какие компоненты и свойства доступны в палитре слева — элементы, требующие более новый API, будут недоступны.">
+      API
+      <select id="api-level-select">
+        <option value="3.0">3.0</option>
+      </select>
+    </label>
+    <input id="project-name" class="project-name" value="My Watch Face" aria-label="Название проекта" data-tip="Название проекта: используется как метаданные в экспортированном проекте. Имя файла при сохранении всегда латиницей — кириллица транслитерируется (например, «Мой циферблат» → Moy_ciferblat.watchface.json).">
+    <button id="act-export-project" class="btn-primary" aria-label="Экспорт полного проекта" data-tip="Экспорт проекта .zip: собирает полную структуру — app.json, папку ресурсов и watchface/index.js — готовую к импорту в Zepp OS Simulator или Studio.">Проект .zip</button>
+  </div>
+</header>
+
+<div class="app-body">
+
+  <aside class="left-panel">
+    <div class="panel-title collapsible" data-section="resources">
+      <button class="toggle-btn">▼</button> Ресурсы
+    </div>
+    <div id="assets-root" class="assets-panel collapsible-content" data-section="resources"></div>
+
+    <div class="aod-panel" id="aod-panel" hidden>
+      <div class="panel-title">AOD Studio</div>
+      <div class="aod-actions">
+        <button id="aod-from-normal">↳ Все элементы из Normal</button>
+        <button id="aod-from-images">▧ Только изображения</button>
+        <button id="aod-from-hands">⌁ Только стрелки</button>
+        <button id="aod-from-text">T Текст и данные</button>
+        <button id="aod-clear">🗑 Очистить AOD</button>
+        <button id="aod-export">⇩ AOD config</button>
+      </div>
+      <div class="panel-title">AOD-предпросмотр</div>
+      <div class="aod-settings-grid">
+        <label>Фон <input id="aod-bg" type="color" value="#000000"></label>
+        <label>Яркость <input id="aod-brightness" type="number" min="1" max="100" value="100"></label>
+        <label>Тест. время <input id="aod-test-time" type="text" value="10:10" maxlength="8"></label>
+        <label>Тест. дата <input id="aod-test-date" type="text" value="18.09.2026"></label>
+        <label>Батарея <input id="aod-battery" type="number" min="0" max="100" value="85"></label>
+        <label>Шаги <input id="aod-steps" type="number" min="0" value="8452"></label>
+        <label>Пульс <input id="aod-heart" type="number" min="0" value="72"></label>
+        <label class="chk"><input id="aod-show-seconds" type="checkbox"> Секунды</label>
+      </div>
+      <div class="aod-preview-mode">
+        <button data-aod-preview="AOD" class="active">AOD</button>
+        <button data-aod-preview="NORMAL">Normal</button>
+        <button data-aod-preview="SIDE">Side by Side</button>
+      </div>
+      <div class="aod-note">Данные датчиков здесь тестовые. Реальные сенсоры не имитируются.</div>
+    </div>
+
+    <div class="panel-title">Компоненты</div>
+    <div id="palette" class="palette"></div>
+
+    <div class="panel-title">Устройство и сборка</div>
+    <div id="project-settings-root" class="project-settings"></div>
+
+  </aside>
+
+  <main class="center-panel">
+    <div id="canvas-root" class="canvas-root"></div>
+    <div id="validation-strip" class="validation-strip"></div>
+  </main>
+
+  <aside class="right-panel">
+    <div class="panel-title collapsible" data-section="layers">
+      <button class="toggle-btn">▶</button> Слои
+    </div>
+    <div id="layers-root" class="layers-panel collapsible-content" data-section="layers"></div>
+
+    <div class="panel-title">Свойства</div>
+    <div id="inspector-root" class="inspector-panel"></div>
+    <div id="aod-status" class="aod-status" hidden></div>
+  </aside>
+
+</div>
+
+
+<!--
+  Plain classic scripts (no type="module") so the app also runs directly
+  from file:// (double-click index.html) without needing a local server.
+  Order matters: each file depends on names declared by the ones before it.
+-->
+<script src="src/util/slug.js"></script>
+<script src="src/util/confirm.js"></script>
+<script src="src/components/registry.js"></script>
+<script src="src/project/project.js"></script>
+<script src="src/preview/renderer.js"></script>
+<script src="src/exporter/index-js-exporter.js"></script>
+<script src="src/exporter/zip-writer.js"></script>
+<script src="src/exporter/project-exporter.js"></script>
+<script src="src/exporter/aod-exporter.js"></script>
+<script src="src/editor/canvas.js"></script>
+<script src="src/editor/layers.js"></script>
+<script src="src/inspector/inspector.js"></script>
+<script src="src/assets/asset-manager.js"></script>
+<script src="src/ui/project-settings.js"></script>
+<script src="src/app.js"></script>
+<script src="src/ui/tooltips.js"></script>
+</body>
+</html>
