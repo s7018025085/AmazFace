@@ -8,7 +8,9 @@ class LayersPanel {
   render() {
     const comps = [...this.store.state.components].reverse(); // top layer first
     const bg = this.store.state.background || {};
-    this.root.innerHTML = `
+    const rows = [];
+
+    rows.push(`
       <div class="layer-row layer-background ${this.store.selection.has('__background__') ? 'active' : ''}" data-id="__background__">
         <span class="layer-drag">▰</span>
         <span class="layer-name">🎨 Фон</span>
@@ -16,23 +18,44 @@ class LayersPanel {
         <button class="layer-btn" data-act="visible" title="Показать/скрыть фон">${Number(bg.alpha ?? 100) > 0 ? '👁' : '🚫'}</button>
         <button class="layer-btn" data-act="lock" title="Фон всегда закреплён">🔒</button>
       </div>
-      ${comps.map((c) => `
-      <div class="layer-row ${this.store.selection.has(c.id) ? 'active' : ''}" data-id="${c.id}">
-        <span class="layer-drag">☰</span>
-        <span class="layer-name">${c.name}</span>
-        <span class="layer-id">${c.id}</span>
-        <button class="layer-btn" data-act="visible" title="Показать/скрыть">${c.visible === false ? '🚫' : '👁'}</button>
-        <button class="layer-btn" data-act="lock" title="Заблокировать">${c.locked ? '🔒' : '🔓'}</button>
-        <button class="layer-btn" data-act="dup" title="Дублировать">⎘</button>
-        <button class="layer-btn" data-act="del" title="Удалить">🗑</button>
-      </div>
-    `).join('')}
-    `;
+    `);
+
+    for (const c of comps) {
+      const tapEnabled = !!(c.props && c.props.tap_action && c.props.tap_action !== 'NONE');
+      const tapId = `${c.id}::tap`;
+      rows.push(`
+        <div class="layer-row layer-parent ${this.store.selection.has(c.id) ? 'active' : ''}" data-id="${c.id}">
+          <span class="layer-drag">☰</span>
+          <span class="layer-name">${c.name}</span>
+          <span class="layer-id">${c.id}</span>
+          <button class="layer-btn" data-act="visible" title="Показать/скрыть">${c.visible === false ? '🚫' : '👁'}</button>
+          <button class="layer-btn" data-act="lock" title="Заблокировать">${c.locked ? '🔒' : '🔓'}</button>
+          <button class="layer-btn" data-act="dup" title="Дублировать">⎘</button>
+          <button class="layer-btn" data-act="del" title="Удалить">🗑</button>
+        </div>
+      `);
+      if (tapEnabled) {
+        rows.push(`
+          <div class="layer-row layer-child ${this.store.selection.has(tapId) ? 'active' : ''}" data-id="${tapId}" data-parent-id="${c.id}">
+            <span class="layer-drag">◧</span>
+            <span class="layer-name">Tap zone</span>
+            <span class="layer-id">${c.id}::tap</span>
+          </div>
+        `);
+      }
+    }
+
+    this.root.innerHTML = rows.join('');
 
     this.root.querySelectorAll('.layer-row').forEach((row) => {
       const id = row.dataset.id;
+      const isTapChild = String(id).includes('::tap');
       row.addEventListener('click', (e) => {
         if (e.target.closest('.layer-btn')) return;
+        if (isTapChild) {
+          this.store.setSelection([id]);
+          return;
+        }
         if (e.shiftKey) {
           const sel = new Set(this.store.selection);
           sel.has(id) ? sel.delete(id) : sel.add(id);
@@ -50,6 +73,7 @@ class LayersPanel {
         row.querySelector('[data-act="lock"]').onclick = (e) => e.stopPropagation();
         return;
       }
+      if (isTapChild) return;
       row.querySelector('[data-act="visible"]').onclick = () => {
         const c = this.store.state.components.find((x) => x.id === id);
         this.store.updateComponent(id, { visible: c.visible === false ? true : false });

@@ -368,6 +368,28 @@ class CanvasEditor {
     }
   }
 
+  _tapSelectionId(compId) {
+    return `${compId}::tap`;
+  }
+
+  _isTapSelectionId(id) {
+    return typeof id === 'string' && id.includes('::tap');
+  }
+
+  _tapZoneRect(comp) {
+    const p = comp.props || {};
+    const hasTap = Object.prototype.hasOwnProperty.call(p, 'tap_x') || Object.prototype.hasOwnProperty.call(p, 'tap_y') || Object.prototype.hasOwnProperty.call(p, 'tap_w') || Object.prototype.hasOwnProperty.call(p, 'tap_h');
+    if (!hasTap) {
+      return { x: comp.x, y: comp.y, w: comp.w, h: comp.h };
+    }
+    return {
+      x: Number(p.tap_x ?? comp.x),
+      y: Number(p.tap_y ?? comp.y),
+      w: Number(p.tap_w ?? comp.w),
+      h: Number(p.tap_h ?? comp.h),
+    };
+  }
+
   render() {
     const state = this.store.state;
     const { w, h, shape } = state.device;
@@ -455,7 +477,9 @@ class CanvasEditor {
       node.className = 'comp-node';
       node.dataset.id = comp.id;
       const tapEnabled = (comp.props && comp.props.tap_action && comp.props.tap_action !== 'NONE');
+      const tapSelected = this.store.selection.has(this._tapSelectionId(comp.id));
       if (tapEnabled && this.showTapZones) node.classList.add('tap-zone-active');
+      if (tapSelected) node.classList.add('selected');
       const isCircleLike = def.widgetId === 'CIRCLE' || def.widgetId === 'STROKE_CIRCLE';
       const x = isCircleLike ? (comp.props.center_x ?? comp.x) - (comp.props.radius ?? comp.w / 2) : comp.x;
       const y = isCircleLike ? (comp.props.center_y ?? comp.y) - (comp.props.radius ?? comp.h / 2) : comp.y;
@@ -481,6 +505,29 @@ class CanvasEditor {
       inner.style.pointerEvents = 'none';
       node.appendChild(inner);
 
+      if (tapEnabled && this.showTapZones) {
+        const tapRect = this._tapZoneRect(comp);
+        const tapNode = document.createElement('div');
+        tapNode.className = 'comp-tap-zone';
+        tapNode.dataset.tapZone = 'true';
+        tapNode.dataset.compId = comp.id;
+        tapNode.style.left = tapRect.x + 'px';
+        tapNode.style.top = tapRect.y + 'px';
+        tapNode.style.width = tapRect.w + 'px';
+        tapNode.style.height = tapRect.h + 'px';
+        if (this.store.selection.has(this._tapSelectionId(comp.id)) || this.store.selection.has(comp.id)) {
+          tapNode.classList.add('selected');
+          for (const corner of ['nw', 'ne', 'sw', 'se']) {
+            const h2 = document.createElement('div');
+            h2.className = `tap-handle tap-handle-${corner}`;
+            h2.dataset.corner = corner;
+            h2.dataset.tapZone = 'true';
+            tapNode.appendChild(h2);
+          }
+        }
+        node.appendChild(tapNode);
+      }
+
       if (this.store.selection.has(comp.id)) {
         node.classList.add('selected');
         for (const corner of ['nw', 'ne', 'sw', 'se']) {
@@ -493,6 +540,11 @@ class CanvasEditor {
 
       if (!comp.locked) {
         node.addEventListener('mousedown', (e) => this._onNodeMouseDown(e, comp));
+        node.addEventListener('click', (e) => {
+          if (e.target && e.target.dataset && e.target.dataset.tapZone === 'true') {
+            this.store.setSelection([this._tapSelectionId(comp.id)]);
+          }
+        });
       } else {
         node.classList.add('locked');
       }
@@ -614,8 +666,56 @@ class CanvasEditor {
     return (entry && entry.glyph) || '☀';
   }
 
+  _onTapZoneMouseDown(e, comp) {
+    e.stopPropagation();
+    this.store.setSelection([this._tapSelectionId(comp.id)]);
+    const state = this.store.state;
+    const tapRect = this._tapZoneRect(comp);
+    const isHandle = e.target.classList.contains('tap-handle');
+    const corner = isHandle ? e.target.dataset.corner : null;
+    const startMouse = { x: e.clientX, y: e.clientY };
+    const startTap = { x: Number(comp.props.tap_x ?? comp.x), y: Number(comp.props.tap_y ?? comp.y), w: Number(comp.props.tap_w ?? comp.w), h: Number(comp.props.tap_h ?? comp.h) };
+
+    const onMove = (ev) => {
+      const dx = (ev.clientX - startMouse.x) / this.zoom;
+      const dy = (ev.clientY - startMouse.y) / this.zoom;
+      const p = comp.props;
+      const live = { x: startTap.x, y: startTap.y, w: startTap.w, h: startTap.h };
+
+      if (corner) {
+        let { x, y, w, h } = live;
+        if (corner.includes('e')) w = live.w + dx;
+        if (corner.includes('s')) h = live.h + dy;
+        if (corner.includes('w')) { w = live.w - dx; x = live.x + dx; }
+        if (corner.includes('n')) { h = live.h - dy; y = live.y + dy; }
+        w = Math.max(8, w); h = Math.max(8, h);
+        if (this.snapGrid) { x = Math.round(x / GRID) * GRID; y = Math.round(y / GRID) * GRID; w = Math.round(w / GRID) * GRID; h = Math.round(h / GRID) * GRID; }
+        p.tap_x = x; p.tap_y = y; p.tap_w = w; p.tap_h = h;
+      } else {
+        let x = live.x + dx;
+        let y = live.y + dy;
+        if (this.snapGrid) { x = Math.round(x / GRID) * GRID; y = Math.round(y / GRID) * GRID; }
+        p.tap_x = x; p.tap_y = y; p.tap_w = live.w; p.tap_h = live.h;
+      }
+      this.store._emit();
+    };
+
+    const onUp = () => {
+      window.removeEventListener('mousemove', onMove);
+      window.removeEventListener('mouseup', onUp);
+      this.store.commit();
+    };
+
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onUp);
+  }
+
   _onNodeMouseDown(e, comp) {
     e.stopPropagation();
+    if (e.target && e.target.dataset && e.target.dataset.tapZone === 'true') {
+      this._onTapZoneMouseDown(e, comp);
+      return;
+    }
     const isHandle = e.target.classList.contains('handle');
     const state = this.store.state;
 

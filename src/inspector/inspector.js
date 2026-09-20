@@ -57,8 +57,31 @@ class Inspector {
       return;
     }
 
-    const comp = this.store.state.components.find((c) => c.id === sel[0]);
+    const selectedId = sel[0];
+    const tapParentId = this._tapParentId(selectedId);
+    const comp = this.store.state.components.find((c) => c.id === (tapParentId || selectedId));
     if (!comp) { this.root.innerHTML = ''; return; }
+    if (tapParentId) {
+      const tapLabel = `Tap zone для ${comp.name}`;
+      this.root.innerHTML = `
+        <div class="insp-header">
+          <div class="insp-name">${this._esc(tapLabel)}</div>
+          <div class="insp-id">${selectedId}</div>
+        </div>
+        <div class="insp-section-title">Прозрачная зона тап</div>
+        <div class="insp-grid">
+          ${['tap_x', 'tap_y', 'tap_w', 'tap_h'].map((key) => this._fieldFor(comp, { key, label: key.replace('tap_', 'tap ').toUpperCase(), kind: 'number', default: comp.props[key] ?? (key.endsWith('_x') ? comp.x : key.endsWith('_y') ? comp.y : key.endsWith('_w') ? comp.w : comp.h), min: 0, max: 10000 }))
+            .join('')}
+        </div>
+      `;
+      this.root.querySelectorAll('[data-prop]').forEach((el) => {
+        const key = el.dataset.prop;
+        if (!Object.prototype.hasOwnProperty.call(comp.props, key)) return;
+        const readValue = () => el.type === 'number' ? Number(el.value) : el.value;
+        el.addEventListener('change', () => this.store.updateComponentProp(comp.id, key, readValue()));
+      });
+      return;
+    }
     const def = REGISTRY[comp.defId];
     const compat = isApiCompatible(def.apiLevel, this.store.state.apiLevel);
 
@@ -168,6 +191,12 @@ class Inspector {
 
     this.root.innerHTML = rows.join('');
     this._bind(comp, def);
+  }
+
+  _tapParentId(selectedId) {
+    if (typeof selectedId !== 'string') return null;
+    const idx = selectedId.indexOf('::tap');
+    return idx > 0 ? selectedId.slice(0, idx) : null;
   }
 
   _renderBackground() {

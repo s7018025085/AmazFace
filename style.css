@@ -250,6 +250,26 @@ input[type=color] { width: 34px; height: 26px; padding: 0; border: 1px solid var
 .shared-preview-canvas { display:block; position:absolute; z-index:0; }
 .comp-node { z-index:1; }
 .comp-node .handle { z-index:3; }
+.comp-tap-zone {
+  position: absolute;
+  z-index: 5;
+  border: 1px dashed rgba(255, 196, 80, .95);
+  background: rgba(255, 196, 80, .12);
+  box-sizing: border-box;
+  pointer-events: auto;
+}
+.comp-tap-zone .tap-handle {
+  position: absolute;
+  width: 8px; height: 8px;
+  background: #ffd166;
+  border: 1px solid #111;
+  box-sizing: border-box;
+  pointer-events: auto;
+}
+.comp-tap-zone .tap-handle-nw { left: -4px; top: -4px; cursor: nwse-resize; }
+.comp-tap-zone .tap-handle-ne { right: -4px; top: -4px; cursor: nesw-resize; }
+.comp-tap-zone .tap-handle-sw { left: -4px; bottom: -4px; cursor: nesw-resize; }
+.comp-tap-zone .tap-handle-se { right: -4px; bottom: -4px; cursor: nwse-resize; }
 
 /* Tap-zone visualization. The actual exported hit area is the component
    rectangle; this only makes it visible while designing. */

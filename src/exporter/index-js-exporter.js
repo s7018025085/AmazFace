@@ -291,11 +291,49 @@ function exportIndexJs(project, assetMap, fontMap, options = {}) {
         h: Math.round(radius * 2),
       };
     }
+
+    const baseX = Math.max(0, jsNum(comp.x, 0));
+    const baseY = Math.max(0, jsNum(comp.y, 0));
+    const baseW = Math.max(1, jsNum(comp.w, 10));
+    const baseH = Math.max(1, jsNum(comp.h, 10));
+
+    const hasTapZone = Object.prototype.hasOwnProperty.call(p, 'tap_x') || Object.prototype.hasOwnProperty.call(p, 'tap_y') || Object.prototype.hasOwnProperty.call(p, 'tap_w') || Object.prototype.hasOwnProperty.call(p, 'tap_h');
+    const rawTapX = Object.prototype.hasOwnProperty.call(p, 'tap_x') ? Number(p.tap_x) : null;
+    const rawTapY = Object.prototype.hasOwnProperty.call(p, 'tap_y') ? Number(p.tap_y) : null;
+    const rawTapW = Object.prototype.hasOwnProperty.call(p, 'tap_w') ? Number(p.tap_w) : null;
+    const rawTapH = Object.prototype.hasOwnProperty.call(p, 'tap_h') ? Number(p.tap_h) : null;
+
+    if (hasTapZone) {
+      return {
+        x: Math.max(0, Math.round(rawTapX ?? baseX)),
+        y: Math.max(0, Math.round(rawTapY ?? baseY)),
+        w: Math.max(1, Math.round(rawTapW ?? baseW)),
+        h: Math.max(1, Math.round(rawTapH ?? baseH)),
+      };
+    }
+
+    const source = def && (def.dataSource || (p && p.data_source)) ? (def.dataSource || p.data_source) : null;
+    const liveTextTap = def && def.widgetId === 'TEXT' && source && (TIME_SOURCES.has(source) || SENSOR_SOURCES.has(source));
+    if (!liveTextTap) {
+      return { x: baseX, y: baseY, w: baseW, h: baseH };
+    }
+
+    const pad = Math.max(8, Math.min(24, Math.round(Math.min(baseW, baseH) * 0.25)));
+    let rx = baseX + baseW + pad;
+    let ry = baseY;
+    if (rx + baseW > dw) {
+      rx = Math.max(0, baseX - baseW - pad);
+    }
+    if (ry + baseH > dh) {
+      ry = Math.max(0, baseY - baseH - pad);
+    }
+    const zoneW = Math.max(1, Math.min(baseW, dw - rx));
+    const zoneH = Math.max(1, Math.min(baseH, dh - ry));
     return {
-      x: Math.max(0, jsNum(comp.x, 0)),
-      y: Math.max(0, jsNum(comp.y, 0)),
-      w: Math.max(1, jsNum(comp.w, 10)),
-      h: Math.max(1, jsNum(comp.h, 10)),
+      x: Math.round(rx),
+      y: Math.round(ry),
+      w: zoneW,
+      h: zoneH,
     };
   }
 
